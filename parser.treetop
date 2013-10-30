@@ -1,0 +1,8 @@
+
+module GxiMemo
+  grammar Gximemo
+    rule main
+      "."
+    end
+  end
+end
