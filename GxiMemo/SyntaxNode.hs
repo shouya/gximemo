@@ -7,6 +7,7 @@ import GxiMemo.MatchData
 -- Atom, 'a', "abc"
 data Char = Char Prelude.Char
           deriving (Show)
+data CharMatchData =
 
 
 -- Repetition, .+, .*, .?, .{m,n}
@@ -16,6 +17,12 @@ type MinTime = RepetitionTime
 type MaxTime = RepetitionTime
 data Repetition a = Repetition MinTime MaxTime a
                   deriving (Show)
+
+data RepetitionMatchData a = RepetitionMatchData
+                             { klass         :: Repetition a
+                             , matchedString :: String
+                             , matchedTime   :: RepeititonTime
+                             }
 
 -- Alternation, (a|b|c)
 data Alternation a = Alternation [a]
@@ -54,6 +61,7 @@ instance Matchable GxiMemo.SyntaxNode.Char where
                      then return $ matchLen m 1
                      else Nothing
 
+
 instance Matchable CharacterClass where
   match (CharacterClass (x:xs)) m =
     case match x m of
@@ -74,14 +82,14 @@ instance Matchable CharacterClassMember where
 
 instance (Matchable a) => Matchable (Sequence a) where
   match (Sequence []) m = return $ matchLen m 0
-  match (Sequence (x:xs)) m =
+  match (Sequence seq@(x:xs)) m =
     match x m >>= \m ->
     match (Sequence xs) (matchLen m (matchLength m)) >>= \m' ->
     return $ MatchData (residual m') (matchLength m' + matchLength m) (offset m')
 
 
--- instance Expression Repetition where
+--instance Expression Repetition where
 --   match (Repetition min max a) s
 --     | min == max = matchtime min a s
 --     | otherwise  = matchonce >> matchtime
---   where matchtime = nothing
+--   where matchtime = Nothing
