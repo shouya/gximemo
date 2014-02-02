@@ -6,6 +6,8 @@ import Control.Monad
 -- type Offset = Integer
 -- type StartPosition = Integer
 -- type EndPosition = Integer
+
+
 data MatchData a = MatchData { residual    :: String
                              , matchLength :: Integer
                              , offset      :: Integer
