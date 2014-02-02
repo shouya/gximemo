@@ -1,87 +1,70 @@
 
 module GxiMemo.SyntaxNode where
 
-import GxiMemo.MatchData
+import Control.Monad (liftM)
 
+-- import GxiMemo.MatchData
 
--- Atom, 'a', "abc"
-data Char = Char Prelude.Char
-          deriving (Show)
-
-
--- Repetition, .+, .*, .?, .{m,n}
 data RepetitionTime = Integer Integer | Infinity
                     deriving (Show)
-type MinTime = RepetitionTime
-type MaxTime = RepetitionTime
-data Repetition a = Repetition MinTime MaxTime a
+
+data Expression a = Atom { atom :: String }
+                  | Symbol { symName :: String }
+                  | Choice { choice :: [Expression a] }
+                  | Sequence { sequence :: [Expression a] }
+                  | Repetition { repItem     :: a
+                               , minTime     :: RepetitionTime
+                               , maxTime     :: RepetitionTime
+                               }
+                  | NegativeLookahead { nlItem :: a }
+                  | PositiveLookahead { plItem :: a }
                   deriving (Show)
 
--- Alternation, (a|b|c)
-data Alternation a = Alternation [a]
-                   deriving (Show)
-
--- Character class, [0-9A-Za-z_]
-data CharacterClassMember =
-    CharacterRange Prelude.Char Prelude.Char
-  | Character Prelude.Char
-  deriving (Show)
-
-data CharacterClass = CharacterClass [CharacterClassMember]
-                    deriving (Show)
-data InverseCharacterClass = InverseCharacterClass [CharacterClassMember]
-                           deriving (Show)
-
--- Sequence, abc :: [Char, Char, Char]
-data Sequence a = Sequence [a]
-                deriving (Show)
+data MatchableTerminal = MatchableTerminal
 
 
-
------------------------
--- Class: Expression --
------------------------
 class Matchable a where
-  match :: a -> MatchData -> MatchResult
+  match :: String -> a -> Maybe String
+  (=~)  :: String -> a -> Maybe String
+
+  str =~ pat    = match str pat
+  match str pat = str =~ pat
+
+instance (Matchable a) => Matchable (Expression a) where
+  str =~ Atom s = if s == take (length s) str
+                  then return s
+                  else Nothing
 
 
-
------------------------------
--- Instance of SyntaxNodes --
------------------------------
-instance Matchable GxiMemo.SyntaxNode.Char where
-  match (Char c) m = if c == (head $ residual m)
-                     then return $ matchLen m 1
-                     else Nothing
-
-instance Matchable CharacterClass where
-  match (CharacterClass (x:xs)) m =
-    case match x m of
-      Just m  -> return $ matchLen m 1
-      Nothing -> match (CharacterClass xs) m
-
-  match (CharacterClass []) _ = Nothing
+  str =~ Choice (x:xs) = case (str =~ x) of
+    Just a  -> return a
+    Nothing -> str =~ (Choice xs)
+  str =~ Choice _      = Nothing
 
 
-instance Matchable CharacterClassMember where
-  match (Character c) m        = if c == (head $ residual m)
-                                 then return $ matchLen m 1
-                                 else Nothing
-  match (CharacterRange a b) m = if a <= x && x <= b
-                                 then return $ matchLen m 1
-                                 else Nothing
-    where x = head $ residual m
-
-instance (Matchable a) => Matchable (Sequence a) where
-  match (Sequence []) m = return $ matchLen m 0
-  match (Sequence (x:xs)) m =
-    match x m >>= \m ->
-    match (Sequence xs) (matchLen m (matchLength m)) >>= \m' ->
-    return $ MatchData (residual m') (matchLength m' + matchLength m) (offset m')
+  str =~ Sequence (x:xs) = (str =~ x) >>= \a ->
+    str =~ Sequence xs >>= \b -> return (a ++ b)
+  str =~ Sequence _      = Just ""
 
 
--- instance Expression Repetition where
---   match (Repetition min max a) s
---     | min == max = matchtime min a s
---     | otherwise  = matchonce >> matchtime
---   where matchtime = nothing
+  str =~ (Repetition x (Integer l) Infinity)    = case str =~ x of
+    Just p  -> matchresult >>= \q -> return (p ++ q)
+      where matchresult = (drop (length p) str) =~
+                          (Repetition x (Integer (l-1)) Infinity)
+    Nothing -> if l > 0 then Nothing
+               else return ""
+
+  str =~ (Repetition x (Integer l) (Integer u)) = case (str =~ x) of
+    Just p  -> if u <= 1 then return p
+               else matchresult >>= \q -> return (p ++ q)
+      where matchresult = (drop (length p) str) =~
+                          (Repetition x (Integer (l-1)) (Integer (u-1)))
+    Nothing -> if l > 0 then Nothing
+               else return ""
+
+  str =~ (NegativeLookahead x) = case str =~ x of
+    Just _  -> Nothing
+    Nothing -> Just ""
+  str =~ (PositiveLookahead x) = (str =~ x) >>= \_ -> return ""
+
+instance Matchable MatchableTerminal where

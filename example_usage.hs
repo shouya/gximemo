@@ -7,3 +7,6 @@ syntax = Syntax Seqence [
           ZeroOrMore (CharacterClass [CharacterRange '0' '9']),
           ZeroOrOne  (Sequence [Char '.',
                                 CharacterClass [CharacterRange '0' '9']])
+
+
+syntax = Repetition (Atom "a") (Integer 3) (Integer 5)
