@@ -8,22 +8,22 @@ import Control.Monad (liftM)
 data RepetitionTime = Integer Integer | Infinity
                     deriving (Show)
 
-data Atom = Atom { atom :: String }
-          deriving (Show)
-data Symbol = Symbol { symName :: String }
-            deriving (Show)
-data Expression a = Choice { choice :: [Expression a] }
-                  | Sequence { sequence :: [Expression a] }
-                  | Repetition { repItem     :: a
-                               , minTime     :: RepetitionTime
-                               , maxTime     :: RepetitionTime
-                               }
-                  | NegativeLookahead { nlItem :: a }
-                  | PositiveLookahead { plItem :: a }
-                  deriving (Show)
+data Expression = Atom { atom :: String }
+                | Rule { ruleName :: String }
+                | Choice { choice :: [Expression] }
+                | Sequence { sequence :: [Expression] }
+                | Repetition { repItem     :: Expression
+                             , minTime     :: RepetitionTime
+                             , maxTime     :: RepetitionTime
+                             }
+                | NegativeLookahead { nlItem :: Expression }
+                | PositiveLookahead { plItem :: Expression }
+                deriving (Show)
 
-data MatchableTerminal = MatchableTerminal
 
+manyTimes a = Repetition a (Integer 1) Infinity    -- +
+anyTimes  a = Repetition a (Integer 0) Infinity    -- *
+optional  a = Repetition a (Integer 0) (Integer 1) -- ?
 
 class Matchable a where
   match :: String -> a -> Maybe String
@@ -33,12 +33,12 @@ class Matchable a where
   match str pat = str =~ pat
 
 
-instance Matchable Atom where
+
+instance Matchable Expression where
   str =~ Atom s = if s == take (length s) str
                   then return s
                   else Nothing
 
-instance (Matchable a) => Matchable (Expression a) where
   str =~ Choice (x:xs) = case (str =~ x) of
     Just a  -> return a
     Nothing -> str =~ (Choice xs)

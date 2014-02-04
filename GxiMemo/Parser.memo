@@ -1,0 +1,31 @@
+
+main = spaces (rule newline+)* rule spaces
+space = " " | "\t" | "\r" | "\n"
+spaces = space*
+alpha = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" |
+        "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" |
+	"u" | "v" | "w" | "x" | "y" | "z" | "A" | "B" | "C" | "D" |
+	"E" | "F" | "G" | "H" | "I" | "J" | "L" | "M" | "N" | "O" |
+	"P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" |
+	"Z"
+alpha_underscore = alpha | "_"
+digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+integer = digit+
+token = alpha_underscore (alpha_underscore | digit)*
+rule = spaces token spaces "=" spaces sequence spaces
+sequence = (expression spaces)* expression
+expression = "(" sequence ")" | repetition | choice | pos_lookahead |
+	     neg_lookahead | string | rule
+string = "\"" + char* "\""
+char = alpha | digit | "~" | "`" | "!" | "@" | "#" | "$" | "%" | "^" |
+       "&" | "*" | "(" | ")" | "-" | "_" | "=" | "+" | "[" | "{" |
+       "]" | "}" | ";" | ":" | "'" | "," | "<" | "." | ">" | "/" |
+       "|" | "?" | "\\" "\\" | "\\" alpha | "\\" "\""
+rule = token
+repetition = expression "?"
+	   | expression "+"
+	   | expression "*"
+	   | expression "{" number? "," number? "}"
+choice = expression spaces "|" spaces "expression
+pos_lookahead = "@" expression
+neg_lookahead = "!" expression
