@@ -1,11 +1,15 @@
-
 module GxiMemo.SyntaxNode where
+
+
+import Control.Monad
+
 
 data RepetitionTime = Integer Integer | Infinity
                     deriving (Show)
 
 data Expression = Atom { atom :: String }
-                | Rule { ruleName :: String }
+                | Rule  { ruleName :: String }
+                | RuleX { ruleXName :: String }
                 | Choice { choice :: [Expression] }
                 | Sequence { sequence :: [Expression] }
                 | Repetition { repItem     :: Expression
@@ -18,11 +22,13 @@ data Expression = Atom { atom :: String }
 
 data MatchData = AtomM String
                | RuleM String MatchData
+               | RuleM' String MatchData
                | ChoiceM MatchData
                | SequenceM [MatchData]
                | RepetitionM [MatchData]
                | NegativeLookaheadM
                | PositiveLookaheadM
+               | NothingM
                deriving (Show)
 
 
@@ -37,14 +43,20 @@ class Matchable a where
   match :: String -> a -> RuleTable -> Maybe (String, MatchData)
 
 
+matchRule resultT =  \str r t ->
+  lookup r t >>= \rule ->
+  match str rule t >>= \(s, m) ->
+  return (s, resultT r m)
+
 instance Matchable Expression where
   match str (Atom s) _ = if s == take (length s) str
                          then return (s, AtomM s)
                          else Nothing
 
-  match str (Rule r) t = lookup r t >>= \rule ->
-    match str rule t >>= \(s, m) ->
-    return (s, RuleM r m)
+
+  match str (Rule r) t  = (matchRule RuleM)  str r t
+  match str (RuleX r) t = (matchRule RuleM') str r t
+
 
   match str (Choice (x:xs)) t =
     case (match str x t) of
@@ -83,3 +95,40 @@ instance Matchable Expression where
     Nothing -> Just ("", NegativeLookaheadM)
   match str (PositiveLookahead x) t = (match str x t) >>= \_ ->
     return ("", PositiveLookaheadM)
+
+
+----------------------------------------------
+-- data MatchData = AtomM String            --
+--                | RuleM String MatchData  --
+--                | ChoiceM MatchData       --
+--                | SequenceM [MatchData]   --
+--                | RepetitionM [MatchData] --
+--                | NegativeLookaheadM      --
+--                | PositiveLookaheadM      --
+----------------------------------------------
+
+
+
+isAtomM (AtomM _) = True
+isAtomM _         = False
+isNothing NothingM = True
+isNothing _        = False
+
+simplify :: MatchData -> MatchData
+simplify (SequenceM xs)
+  | length xs' == 0 = NothingM
+  | length xs' == 1  = head xs'
+  | all isAtomM xs' = foldl1 (\(AtomM a) (AtomM b) -> AtomM (a ++ b)) xs'
+  | otherwise       = SequenceM xs'
+  where xs' = filter (not . isNothing) $ map simplify xs
+
+simplify (RuleM name dat) = RuleM name (simplify dat)
+simplify (RuleM' name dat) = simplify dat
+simplify (ChoiceM x) = simplify x
+simplify (RepetitionM xs)
+  | length xs' == 0 = NothingM
+  | length xs' == 1 = head xs'
+  | all isAtomM xs' = foldl1 (\(AtomM a) (AtomM b) -> AtomM (a ++ b)) xs'
+  | otherwise       = RepetitionM xs'
+  where xs' = filter (not . isNothing) $ map simplify xs
+simplify x = x
