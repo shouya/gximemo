@@ -20,12 +20,16 @@ data Expression = Atom { atom :: String }
                 | PositiveLookahead { plItem :: Expression }
                 deriving (Show)
 
-data MatchData = AtomM String
-               | RuleM String MatchData
-               | RuleM' String MatchData
-               | ChoiceM MatchData
-               | SequenceM [MatchData]
-               | RepetitionM [MatchData]
+data MatchData = AtomM { atomM :: String }
+               | RuleM { ruleNameM :: String
+                       , ruleBodyM :: MatchData
+                       }
+               | RuleM' { ruleNameM' :: String
+                        , ruleBodyM' :: MatchData
+                        }
+               | ChoiceM { choiceM :: MatchData }
+               | SequenceM { sequenceM :: [MatchData] }
+               | RepetitionM { repetitionM :: [MatchData] }
                | NegativeLookaheadM
                | PositiveLookaheadM
                | NothingM

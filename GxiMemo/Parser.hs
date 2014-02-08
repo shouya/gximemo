@@ -26,28 +26,45 @@ rules =
 
   ,("rule", Sequence [RuleX "spaces", Rule "token",
                       RuleX "spaces", Atom "=",
-                      RuleX "spaces", Rule "sequence", RuleX "spaces_nonl"])
-  ,("sequence", Sequence [Rule "expression",
+                      RuleX "spaces", Rule "choice", RuleX "spaces_nonl"])
+  ,("choice", Sequence [RuleX "sequence",
+                        anyTimes (Sequence [RuleX "spaces", RuleX "|",
+                                            RuleX "spaces", Rule "sequence"])])
+  ,("sequence", Sequence [Rule "repetition",
                           anyTimes (Sequence [RuleX "spaces_nonl",
-                                              Rule "expression"])])
-  ,("expression", Sequence [RuleX "expression1", anyTimes (Rule "choice")])
-  ,("expression1", Sequence [RuleX "expression2",
-                             optional (Rule "repetition")])
-  ,("expression2", Choice [Sequence [Atom "(", RuleX "spaces", Rule "sequence",
-                                     RuleX "spaces", Atom ")"],
-                           Rule "string",
-                           Rule "token",
-                           Rule "token_omitted",
-                           Rule "pos_lookahead",
-                           Rule "neg_lookahead"])
+                                              Rule "repetition"])])
+  ,("repetition", Sequence [Rule "expression",
+                            optional $
+                            Choice [Atom "?", Atom "+", Atom "*",
+                                    Sequence [Atom "{",
+                                              optional (RuleX "number"),
+                                              Atom ",",
+                                              optional (RuleX "number"),
+                                              Atom "}"]]])
+  ,("expression", Choice [Sequence [Atom "(", RuleX "spaces", Rule "choice",
+                                    RuleX "spaces", Atom ")"],
+                          Rule "string",
+                          Rule "token",
+                          Rule "token_omitted",
+                          Rule "pos_lookahead",
+                          Rule "neg_lookahead"])
   ,("token_omitted", Sequence [Atom "@", RuleX "token"])
-  ,("repetition", Choice [Atom "?", Atom "+", Atom "*",
-                          Sequence [Atom "{", optional (RuleX "number"),
-                                    Atom ",", optional (RuleX "number"),
-                                    Atom "}"]])
-  ,("choice", Sequence [RuleX "spaces", Atom "|",
-                        RuleX "spaces", Rule "expression"])
   ,("string", Sequence [Atom "\"", anyTimes (RuleX "char"), Atom "\""])
   ,("pos_lookahead", Sequence [Atom "=", Rule "expression"])
   ,("pos_lookahead", Sequence [Atom "!", Rule "expression"])
   ]
+
+parseString str = match str (Rule "main") rules
+
+
+resolve :: MatchData -> RuleTable
+resolve = resolveMain
+
+resolveMain (RuleM "main" (SequenceM xs)) = map resolveRule xs
+resolveRule (RuleM "rule" (SequenceM seq)) = (name, body)
+  where name = atomM (ruleBodyM (head seq))
+        body = resolveExpression (last (init seq))
+resolveExpression (RuleM "sequence" (SequenceM seq)) =
+  Sequence (
+    (resolveExpression (head seq)):
+    map (resolveExpression . head . tail . sequenceM) (repetitionM $ last seq))

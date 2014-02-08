@@ -20,18 +20,18 @@ char = @alpha | @digit | " " | "~" | "`" | "!" | "@" | "#" | "$" | "%" |
        "/" | "|" | "?" | "\\" "\\" | "\\" @alpha | "\\" "\""
 
 
-rule = @spaces token @spaces "=" @spaces sequence @spaces_nonl
-sequence = expression (@spaces_nonl expression)*
-expression = @expression1 choice*
-expression1 = @expression2 repetition?
-expression2 = "(" @spaces sequence @spaces ")" | string | token |
-	      token_omitted | pos_lookahead | neg_lookahead
+rule = @spaces token @spaces "=" @spaces choice @spaces_nonl
+choice = sequence (@spaces "|" @spaces sequence)*
+sequence = repetition (@spaces_nonl repetition)*
+repetition = expression ("?" | "+" | "*" | "{" @number? "," @number? "}")
+expression = "(" @spaces choice @spaces ")"
+	   | string
+	   | token
+	   | token_omitted
+	   | pos_lookahead
+	   | neg_lookahead
+
 token_omitted = "@" @token
-repetition = "?"
-	   | "+"
-	   | "*"
-	   | "{" @number? "," @number? "}"
-choice = @spaces "|" @spaces expression
 string = "\"" @char* "\""
 pos_lookahead = "=" expression
 neg_lookahead = "!" expression
