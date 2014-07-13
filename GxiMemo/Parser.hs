@@ -50,11 +50,25 @@ data Pattern = Atom String
 data MatchData = MAtom String
                | MList [MatchData]
                | MPair (RuleName, MatchData)
+--               deriving (Show)
 
 instance Show MatchData where
   show (MPair (name,md)) = "{" ++ (show md) ++ "}:" ++ name
   show (MList xs) = join $ map show xs
   show (MAtom x)  = x
+
+isMPair :: MatchData -> Bool
+isMPair (MPair (_,_)) = True
+isMPair _ = False
+
+getMPair :: MatchData -> (RuleName, MatchData)
+getMPair (MPair (r,m)) = (r,m)
+getMPair _ = error "not a MPair"
+
+getMList :: MatchData -> [MatchData]
+getMList (MList xs) = xs
+getMList _ = error "not a MList"
+
 
 mToString :: MatchData -> String
 mToString (MPair (_,md)) = mToString md
@@ -62,8 +76,8 @@ mToString (MList xs) = join $ map mToString xs
 mToString (MAtom s) = s
 
 -- flattening a match data
-mAtomify :: MatchData -> MatchData      -- always return (MAtom x)
-mAtomify = MAtom . mToString
+mAtomify :: MatchData -> String      -- always return (MAtom x)
+mAtomify = mToString
 
 data ParsingState = ParsingState { _restString :: String,
                                    _ruleMap    :: RuleMap
@@ -116,7 +130,7 @@ parseI (RuleX name) = do
       result <- parseI pat
       case result of
         Nothing -> return Nothing
-        Just m  -> return $ Just $ mAtomify m
+        Just m  -> return $ Just $ MAtom $ mAtomify m
 
 parseI (Repetition pat l' u') =
   if rtZerop u' then return $ Just $ MList []

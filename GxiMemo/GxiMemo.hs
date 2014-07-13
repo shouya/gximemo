@@ -4,7 +4,8 @@ module GxiMemo where
 import Parser
 
 import Control.Monad.State
-import Data.Map as M hiding (map)
+import Data.List
+import Data.Map as M hiding (map, filter)
 
 
 rules :: [RulePair]
@@ -39,14 +40,22 @@ rules =
   ,("sequence", Sequence [Rule "repetition",
                           anyTimes (Sequence [RuleX "spaces_nonl",
                                               Rule "repetition"])])
+  ,("rep_optional", Atom "?")
+  ,("rep_manytimes", Atom "+")
+  ,("rep_anytimes", Atom "*")
+  ,("rep_mintime", RuleX "number")
+  ,("rep_maxtime", RuleX "number")
+  ,("rep_mark", Choice [Rule "rep_optional",
+                        Rule "rep_manytimes",
+                        Rule "rep_anytimes",
+                        Sequence [Atom "{",
+                                  optional (Rule "rep_mintime"),
+                                  Atom ",",
+                                  optional (Rule "rep_maxtime"),
+                                  Atom "}"]])
+
   ,("repetition", Sequence [Rule "expression",
-                            optional $
-                            Choice [Atom "?", Atom "+", Atom "*",
-                                    Sequence [Atom "{",
-                                              optional (RuleX "number"),
-                                              Atom ",",
-                                              optional (RuleX "number"),
-                                              Atom "}"]]])
+                            optional $ Rule "rep_mark"])
   ,("expression", Choice [Sequence [Atom "(", RuleX "spaces", Rule "choice",
                                     RuleX "spaces", Atom ")"],
                           Rule "string",
@@ -66,24 +75,84 @@ parse str rm start = evalState (parseI $ main) $ ParsingState str rm
   where main = rm ! start
 
 
-debugParse :: String -> IO (Maybe MatchData, ParsingState)
+simplify :: MatchData -> MatchData
+
+simplify (MList (xs)) = xs'''
+  where notnul x = mToString x /= ""
+        xs' = map simplify xs
+        xs'' = filter notnul xs'
+        xs''' = case length xs'' of
+          0 -> MAtom ""
+          1 -> head xs''
+          _ -> MList xs''
+
+simplify (MPair (n,m)) = MPair (n,simplify m)
+simplify x = x
+
+
+penetrateSubstitute :: String -> MatchData -> MatchData
+penetrateSubstitute name xs =  case xs of
+  MList xs' -> if length xs'' == 1 then head xs''
+               else MPair (name, MList xs'')
+    where xs'' = map simplifyGM xs'
+  _         -> simplifyGM xs
+
+
+simplifyGM :: MatchData -> MatchData
+simplifyGM (MList xs) = MList $ map simplifyGM xs
+
+simplifyGM (MPair ("choice",xs)) = penetrateSubstitute "choice" xs
+simplifyGM (MPair ("sequence",xs)) = penetrateSubstitute "sequence" xs
+simplifyGM (MPair ("repetition",xs)) = penetrateSubstitute "repetition" xs
+simplifyGM (MPair ("expression",xs)) = penetrateSubstitute "expression" xs
+simplifyGM (MPair ("rep_mark",xs)) = penetrateSubstitute "rep_mark" xs
+
+simplifyGM (MPair (n,x)) = MPair (n,simplifyGM x)
+simplifyGM x = x
+
+-- debugParse :: String -> IO (Maybe MatchData, ParsingState)
 debugParse start = readFile "Parser.memo" >>= \str ->
-  return $ runState (parseI $ main) $ ParsingState str rm
+  return $ ((evalState (parseI $ main) $ ParsingState str rm) >>=
+                 (return . simplifyGM . simplify))
   where rm = fromList rules
         main = rm ! start
 
 
-convertToGxiMemoPattern :: MatchData -> Maybe Pattern
-convertToGxiMemoPattern = undefined
-
 extract  :: RuleName -> MatchData -> Maybe MatchData
-extract = undefined
-extracts :: RuleName -> MatchData -> Maybe [MatchData]
-extracts = undefined
+extract name (MList xs) = find foo xs
+  where foo (MPair (name',_)) = if name == name'
+                                then True
+                                else False
+        foo _ = False
+extract _ _ = error "invalid"
 
-parseToRuleList :: String -> Maybe [Pattern]
+extractString :: RuleName -> MatchData -> Maybe String
+extractString name m = extract name m >>= return . mToString
+
+
+toPatternPair :: MatchData -> Maybe RulePair
+toPatternPair (MPair (_,m)) = do
+  name <- extract "token" m >>= return . mToString . snd . getMPair
+  toPattern m >>= \pat -> return (name, pat)
+toPatternPair _ = Nothing -- impossible
+
+toPattern :: MatchData -> Maybe Pattern
+toPattern (MPair ("string", str)) = return $ Atom $ tail $ init $ mToString str
+toPattern (MPair ("token", str)) = return $ Rule $ mToString $ str
+toPattern (MPair ("token_omitted", str)) =
+  return $ RuleX $ tail $ mToString $ str                    -- skip the '@'
+toPattern (MPair ("choice", xs)) =
+  (mapM toPattern $ filter isMPair $ getMList xs) >>= return . Choice
+toPattern (MPair ("sequence", xs)) =
+  (mapM toPattern $ filter isMPair $ getMList xs) >>= return . Sequence
+toPattern _ = Nothing
+-- toPattern (MPair ("repetition", xs)) = Sequence $ map toPattern $ filter isMPair xs
+
+
+
+parseToRuleList :: String -> Maybe [RulePair]
 parseToRuleList str = do
-  main <- parse str (fromList rules) "main" >>= extract "main"
-  rawrules <- extracts "rule" main
-  rules' <- mapM convertToGxiMemoPattern rawrules
-  return rules'
+  rawrules <- parse str (fromList rules) "main" >>= return . simplify
+  case rawrules of
+    MList xs -> mapM toPatternPair xs
+    _        -> Nothing
