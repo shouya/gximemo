@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GxiMemo.Parser where
+module Parser where
 
 import Control.Monad
 import Control.Monad.State
@@ -37,6 +37,7 @@ rtPred RTInf = RTInf
 data Pattern = Atom String
              | Rule String
              | RuleX String  -- rule that only do matching but ignoring the result
+               -- TODO: RepetitionL : Lazy repetition
              | Repetition Pattern RepTime RepTime -- pat, minTime, maxTime
              | Choice [Pattern]
              | Sequence [Pattern]
@@ -44,59 +45,6 @@ data Pattern = Atom String
              | PositiveLookahead Pattern
              deriving (Show)
 
-
-rules :: [RulePair]
-rules =
-  [("main", Sequence [RuleX "spaces", Rule "rule",
-                      anyTimes (Sequence [manyTimes (RuleX "newline"),
-                                          Rule "rule"])])
-  ,("space", Choice (map Atom [" ", "\t", "\r\n", "\r", "\n"]))
-  ,("space_nonl", Choice (map Atom [" ", "\t"]))
-  ,("spaces", anyTimes (RuleX "space"))
-  ,("spaces_nonl", anyTimes (RuleX "space_nonl"))
-  ,("newline", Choice (map Atom ["\r\n", "\r", "\n"]))
-  ,("alpha", Choice (map (Atom . (:[])) (['a'..'z'] ++ ['A'..'Z'])))
-  ,("alpha_underscore", Choice [RuleX "alpha", Atom "_"])
-  ,("digit", Choice (map (Atom . (:[])) ['0'..'9']))
-  ,("integer", manyTimes (RuleX "digit"))
-  ,("token", Sequence [RuleX "alpha_underscore",
-                       anyTimes (Choice [RuleX "alpha_underscore",
-                                         RuleX "digit"])])
-  ,("char", Choice ([RuleX "alpha", RuleX "digit"] ++
-                    (map (Atom . (:[])) " ~`!@#$%^&*()-_=+[]{}:;'<>?,./|") ++
-                    [Atom "\\\\", Atom "\\\"",
-                     Sequence [Atom "\\", RuleX "alpha"]]))
-
-
-  ,("rule", Sequence [RuleX "spaces", Rule "token",
-                      RuleX "spaces", Atom "=",
-                      RuleX "spaces", Rule "choice", RuleX "spaces_nonl"])
-  ,("choice", Sequence [RuleX "sequence",
-                        anyTimes (Sequence [RuleX "spaces", RuleX "|",
-                                            RuleX "spaces", Rule "sequence"])])
-  ,("sequence", Sequence [Rule "repetition",
-                          anyTimes (Sequence [RuleX "spaces_nonl",
-                                              Rule "repetition"])])
-  ,("repetition", Sequence [Rule "expression",
-                            optional $
-                            Choice [Atom "?", Atom "+", Atom "*",
-                                    Sequence [Atom "{",
-                                              optional (RuleX "number"),
-                                              Atom ",",
-                                              optional (RuleX "number"),
-                                              Atom "}"]]])
-  ,("expression", Choice [Sequence [Atom "(", RuleX "spaces", Rule "choice",
-                                    RuleX "spaces", Atom ")"],
-                          Rule "string",
-                          Rule "token",
-                          Rule "token_omitted",
-                          Rule "pos_lookahead",
-                          Rule "neg_lookahead"])
-  ,("token_omitted", Sequence [Atom "@", RuleX "token"])
-  ,("string", Sequence [Atom "\"", anyTimes (RuleX "char"), Atom "\""])
-  ,("pos_lookahead", Sequence [Atom "=", Rule "expression"])
-  ,("pos_lookahead", Sequence [Atom "!", Rule "expression"])
-  ]
 
 
 data MatchData = MAtom String
@@ -173,9 +121,11 @@ parseI (RuleX name) = do
 parseI (Repetition pat l' u') =
   if rtZerop u' then return $ Just $ MList []
   else do
+    oldST <- get
     m' <- parseI pat
     case m' of
-      Nothing -> if rtZerop l' then return (Just $ MList [])
+      Nothing -> if rtZerop l' then do put oldST
+                                       return (Just $ MList [])
                  else return Nothing               -- error
       Just m  -> do
         ms' <- parseI (Repetition pat (rtPred l') (rtPred u'))
@@ -230,47 +180,3 @@ parseI (PositiveLookahead p) = do
   case m' of
     Just _   -> return $ Just $ MAtom ""
     Nothing  -> return Nothing
-
-
-
-
-{-
-    match str (Repetition x (Integer l) Infinity) t =
-    case match str x t of
-      Just (p,m)  -> matchresult >>= \(q, RepetitionM ms) ->
-        return (p ++ q, RepetitionM (m:ms))
-        where matchresult = match (drop (length p) str)
-                            (Repetition x (Integer (l-1)) Infinity) t
-      Nothing -> if l > 0 then Nothing
-                 else return ("", RepetitionM [])
-  match str (Repetition x (Integer l) (Integer u)) t =
-    case match str x t of
-      Just (p,m)  -> if u <= 1 then return (p, RepetitionM [m])
-                     else matchresult >>= \(q, RepetitionM ms) ->
-                     return (p ++ q, RepetitionM (m:ms))
-        where matchresult = match (drop (length p) str)
-                            (Repetition x (Integer (l-1)) (Integer (u-1))) t
-      Nothing -> if l > 0 then Nothing
-                 else return ("", RepetitionM [])
--}
-
-
-parse :: String -> RuleMap -> String -> Maybe MatchData
-parse str rm start = evalState (parseI $ main) $ ParsingState str rm
-  where main = rm ! start
-
-
-convertToGxiMemoPattern :: MatchData -> Maybe Pattern
-convertToGxiMemoPattern = undefined
-
-extract  :: RuleName -> MatchData -> Maybe MatchData
-extract = undefined
-extracts :: RuleName -> MatchData -> Maybe [MatchData]
-extracts = undefined
-
-parseToRuleList :: String -> Maybe [Pattern]
-parseToRuleList str = do
-  main <- parse str (fromList rules) "main" >>= extract "main"
-  rawrules <- extracts "rule" main
-  rules' <- mapM convertToGxiMemoPattern rawrules
-  return rules'
