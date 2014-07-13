@@ -34,7 +34,7 @@ rules =
                       RuleX "spaces", Atom "=",
                       RuleX "spaces", Rule "choice", RuleX "spaces_nonl"])
   ,("choice", Sequence [Rule "sequence",
-                        anyTimes (Sequence [RuleX "spaces", RuleX "|",
+                        anyTimes (Sequence [RuleX "spaces", Atom "|",
                                             RuleX "spaces", Rule "sequence"])])
   ,("sequence", Sequence [Rule "repetition",
                           anyTimes (Sequence [RuleX "spaces_nonl",
@@ -65,13 +65,13 @@ parse :: String -> RuleMap -> String -> Maybe MatchData
 parse str rm start = evalState (parseI $ main) $ ParsingState str rm
   where main = rm ! start
 
-{-
+
 debugParse :: String -> IO (Maybe MatchData, ParsingState)
-debugParse start = readFile "test.memo" >>= \str ->
+debugParse start = readFile "Parser.memo" >>= \str ->
   return $ runState (parseI $ main) $ ParsingState str rm
   where rm = fromList rules
         main = rm ! start
--}
+
 
 convertToGxiMemoPattern :: MatchData -> Maybe Pattern
 convertToGxiMemoPattern = undefined
