@@ -97,9 +97,36 @@ penetrateSubstitute name xs =  case xs of
     where xs'' = map simplifyGM xs'
   _         -> simplifyGM xs
 
+expandTail :: MatchData -> MatchData
+expandTail (MList xs) =
+  case last xs of
+    MList xxs -> MList (init xs ++ xxs)
+    _         -> MList xs
+expandTail x = x
+
+expandTailSplice :: MatchData -> MatchData
+expandTailSplice (MList xs) =
+  case last xs of
+    MList xxs -> MList (init xs ++ xxs')
+      where xxs' = map (head . getMList) xxs
+    _         -> MList xs
+expandTailSplice x = x
+
 
 simplifyGM :: MatchData -> MatchData
+simplifyGM (MList (_:(MPair ("rule", x)):xs)) =
+               simplifyGM (MList ((MPair ("rule", x)):xs))
+
 simplifyGM (MList xs) = MList $ map simplifyGM xs
+
+-- simplification for 'token' is only for debugging use,
+-- and should be removed in production
+simplifyGM (MPair ("token",xs)) = MPair ("token", MAtom $ mToString xs)
+simplifyGM (MPair ("string",xs)) = MPair ("string",
+                                          MAtom $ tail $ init $ mToString xs)
+simplifyGM (MPair ("rule", MList xs)) =
+  MPair ("rule", MList ([simplifyGM $ head xs] ++ drop 4 xs'))
+  where xs' = map simplifyGM xs
 
 simplifyGM (MPair ("choice",xs)) = penetrateSubstitute "choice" xs
 simplifyGM (MPair ("sequence",xs)) = penetrateSubstitute "sequence" xs
@@ -120,8 +147,8 @@ debugParse start = readFile "Parser.memo" >>= \str ->
 debugConvert :: IO ()
 debugConvert = readFile "Parser.memo" >>= \str ->
   case parseToRuleList str of
-    Just m  -> print $ intercalate "\n\n" $ map show m
-    Nothing -> print "Fork! 怎麼又解析出錯了!"
+    Just m  -> putStrLn $ intercalate "\n\n" $ map show m
+    Nothing -> putStrLn "Fork! 怎麼又解析出錯了!"
 
 
 extract  :: RuleName -> MatchData -> Maybe MatchData
@@ -137,10 +164,12 @@ extractString name m = extract name m >>= return . mToString
 
 
 toPatternPair :: MatchData -> Maybe RulePair
-toPatternPair (MPair (_,m)) = do
-  name <- extract "token" m >>= return . mToString . snd . getMPair
-  toPattern m >>= \pat -> return (name, pat)
-toPatternPair x = toPattern x >>= \x' -> Just $ ("error", x')
+toPatternPair (MPair ("rule",m)) = do
+  rulename <- return $ mToString $ snd $ getMPair $ head $ getMList m
+  pattern  <- toPattern (MList $ tail $ getMList m)
+  return (rulename, pattern)
+
+toPatternPair x = toPattern x >>= \_ -> Just $ ("error", Atom $ mInspect x)
 -- impossible: should be Nothing
 
 toPattern :: MatchData -> Maybe Pattern
@@ -152,7 +181,13 @@ toPattern (MPair ("choice", xs)) =
   (mapM toPattern $ filter isMPair $ getMList xs) >>= return . Choice
 toPattern (MPair ("sequence", xs)) =
   (mapM toPattern $ filter isMPair $ getMList xs) >>= return . Sequence
-toPattern x = Just $ Atom $ mInspect x
+toPattern (MList xs) =
+  case length xs of
+    1 -> toPattern $ head xs
+    _ -> return $ Atom $ show xs
+
+-- toPattern (MList xs) = mapM toPattern xs >>= return . Sequence
+toPattern x = Just $ Atom $ mInspect x             -- unrecognized
 -- toPattern (MPair ("repetition", xs)) =
 --      Sequence $ map toPattern $ filter isMPair xs
 
@@ -160,7 +195,9 @@ toPattern x = Just $ Atom $ mInspect x
 
 parseToRuleList :: String -> Maybe [RulePair]
 parseToRuleList str = do
-  rawrules <- parse str (fromList rules) "main" >>= return . simplifyGM . simplify
+  rawmain  <- parse str (fromList rules) "main"
+  rawrules <- (return . expandTailSplice . simplifyGM . simplify) rawmain
+--  error (mInspect rawrules)
   case rawrules of
     MList xs -> mapM toPatternPair xs
     _        -> Nothing

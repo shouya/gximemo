@@ -53,7 +53,8 @@ instance Show Pattern where
     where mark (RTInt 0) (RTInt 1) = "?"
           mark (RTInt 1) RTInf     = "+"
           mark (RTInt 0) RTInf     = "*"
-          mark (RTInt a) (RTInt b) = "{" ++ show a ++ "," ++ show b ++ "}"
+          mark (RTInt l) (RTInt u) = "{" ++ show l ++ "," ++ show u ++ "}"
+          mark _ _ = undefined
   show _ = ""
 
 
@@ -81,8 +82,8 @@ getMList (MList xs) = xs
 getMList _ = error "not a MList"
 
 mInspect :: MatchData -> String
-mInspect (MPair (n,md)) = n ++ " => " ++ mInspect md
-mInspect (MList xs) = "[" ++ (intercalate ",\n" $ map mInspect xs) ++ "]"
+mInspect (MPair (n,md)) = n ++ "=>" ++ mInspect md
+mInspect (MList xs) = "[" ++ (intercalate "/" $ map mInspect xs) ++ "]"
 mInspect (MAtom s) = s
 
 
