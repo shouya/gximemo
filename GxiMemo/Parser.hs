@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.State
 import Control.Lens
 
+import Data.List
 import Data.Map as M hiding (map)
 
 
@@ -43,7 +44,17 @@ data Pattern = Atom String
              | Sequence [Pattern]
              | NegativeLookahead Pattern
              | PositiveLookahead Pattern
-             deriving (Show)
+
+instance Show Pattern where
+  show (Atom x) = x
+  show (Rule x) = '@' : x
+  show (RuleX x) = "@@" ++ x
+  show (Repetition p a b) = (show p) ++ (mark a b)
+    where mark (RTInt 0) (RTInt 1) = "?"
+          mark (RTInt 1) RTInf     = "+"
+          mark (RTInt 0) RTInf     = "*"
+          mark (RTInt a) (RTInt b) = "{" ++ show a ++ "," ++ show b ++ "}"
+  show _ = ""
 
 
 
@@ -68,6 +79,11 @@ getMPair _ = error "not a MPair"
 getMList :: MatchData -> [MatchData]
 getMList (MList xs) = xs
 getMList _ = error "not a MList"
+
+mInspect :: MatchData -> String
+mInspect (MPair (n,md)) = n ++ " => " ++ mInspect md
+mInspect (MList xs) = "[" ++ (intercalate ",\n" $ map mInspect xs) ++ "]"
+mInspect (MAtom s) = s
 
 
 mToString :: MatchData -> String

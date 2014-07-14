@@ -1,4 +1,4 @@
-
+-- -*- coding: utf-8 -*-
 module GxiMemo where
 
 import Parser
@@ -117,6 +117,12 @@ debugParse start = readFile "Parser.memo" >>= \str ->
   where rm = fromList rules
         main = rm ! start
 
+debugConvert :: IO ()
+debugConvert = readFile "Parser.memo" >>= \str ->
+  case parseToRuleList str of
+    Just m  -> print $ intercalate "\n\n" $ map show m
+    Nothing -> print "Fork! 怎麼又解析出錯了!"
+
 
 extract  :: RuleName -> MatchData -> Maybe MatchData
 extract name (MList xs) = find foo xs
@@ -134,7 +140,8 @@ toPatternPair :: MatchData -> Maybe RulePair
 toPatternPair (MPair (_,m)) = do
   name <- extract "token" m >>= return . mToString . snd . getMPair
   toPattern m >>= \pat -> return (name, pat)
-toPatternPair _ = Nothing -- impossible
+toPatternPair x = toPattern x >>= \x' -> Just $ ("error", x')
+-- impossible: should be Nothing
 
 toPattern :: MatchData -> Maybe Pattern
 toPattern (MPair ("string", str)) = return $ Atom $ tail $ init $ mToString str
@@ -145,14 +152,15 @@ toPattern (MPair ("choice", xs)) =
   (mapM toPattern $ filter isMPair $ getMList xs) >>= return . Choice
 toPattern (MPair ("sequence", xs)) =
   (mapM toPattern $ filter isMPair $ getMList xs) >>= return . Sequence
-toPattern _ = Nothing
--- toPattern (MPair ("repetition", xs)) = Sequence $ map toPattern $ filter isMPair xs
+toPattern x = Just $ Atom $ mInspect x
+-- toPattern (MPair ("repetition", xs)) =
+--      Sequence $ map toPattern $ filter isMPair xs
 
 
 
 parseToRuleList :: String -> Maybe [RulePair]
 parseToRuleList str = do
-  rawrules <- parse str (fromList rules) "main" >>= return . simplify
+  rawrules <- parse str (fromList rules) "main" >>= return . simplifyGM . simplify
   case rawrules of
     MList xs -> mapM toPatternPair xs
     _        -> Nothing
