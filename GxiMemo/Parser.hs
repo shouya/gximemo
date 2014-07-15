@@ -107,9 +107,6 @@ mToString (MPair (_,md)) = mToString md
 mToString (MList xs) = join $ map mToString xs
 mToString (MAtom s) = s
 
-mAtomify :: MatchData -> String
-mAtomify = mToString
-
 data ParsingState = ParsingState { _restString :: String,
                                    _ruleMap    :: RuleMap
                                  }
@@ -161,7 +158,7 @@ parseI (RuleX name) = do
       result <- parseI pat
       case result of
         Nothing -> return Nothing
-        Just m  -> return $ Just $ MAtom $ mAtomify m
+        Just m  -> return $ Just $ MAtom $ mToString m
 
 parseI (Repetition pat l' u') =
   if rtZerop u' then return $ Just $ MList []
