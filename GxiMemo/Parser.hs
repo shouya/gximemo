@@ -85,9 +85,7 @@ isMList _ = False
 
 getMList :: MatchData -> [MatchData]
 getMList (MList xs) = xs
---DEUBG:
-getMList a = error (mInspect a ++ " is not a MList")
---getMList _ = error "not a MList"
+getMList _ = error "not a MList"
 
 isMAtom :: MatchData -> Bool
 isMAtom (MAtom _) = True
@@ -109,8 +107,7 @@ mToString (MPair (_,md)) = mToString md
 mToString (MList xs) = join $ map mToString xs
 mToString (MAtom s) = s
 
--- flattening a match data
-mAtomify :: MatchData -> String      -- always return (MAtom x)
+mAtomify :: MatchData -> String
 mAtomify = mToString
 
 data ParsingState = ParsingState { _restString :: String,

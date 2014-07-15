@@ -112,28 +112,6 @@ expandSequence (MList (h:[t])) = MList $
   else [h] ++ map (head . getMList) (getMList t)
 expandSequence _ = error "not a sequence"
 
-{-
-Repetition:
-  expression ("?" | "+" | "*" | "{" @number? "," @number? "}")
-
-Match Data format:
-  [expression => expr, rep_mark => "*"]
-Or
-  [expression => expr, rep_mark => [rep_min => 1, rep_max => 3]]
-
-
-* A repetition without repetition marks will be simplified.
--}
-
-{-
-Choice:
-  choice = sequence (@spaces "|" @spaces sequence)*
-
-Match Data format:
-   [string=> /[[string=>\t]/[string=>\r\n]/[string=>\r]/[string=>\n]]]
-
--}
-
 simplifyGM :: MatchData -> MatchData
 --simplifyGM (MList (_:(MPair ("rule", x)):xs)) =
 --               simplifyGM (MList ((MPair ("rule", x)):xs))
@@ -160,12 +138,7 @@ simplifyGM (MPair ("rep_mark",xs)) = penetrateSubstitute "rep_mark" xs
 simplifyGM (MPair (n,x)) = MPair (n,simplifyGM x)
 simplifyGM x = x
 
--- debugParse :: String -> IO (Maybe MatchData, ParsingState)
-debugParse start = readFile "Parser.memo" >>= \str ->
-  return $ ((evalState (parseI $ main) $ ParsingState str rm) >>=
-                 (return . simplifyGM . simplify))
-  where rm = fromList rules
-        main = rm ! start
+
 
 debugConvert :: IO ()
 debugConvert = readFile "Parser.memo" >>= \str ->
@@ -174,27 +147,13 @@ debugConvert = readFile "Parser.memo" >>= \str ->
     Nothing -> putStrLn "Fork! 怎麼又解析出錯了摔!"
 
 
-extract  :: RuleName -> MatchData -> Maybe MatchData
-extract name (MList xs) = find foo xs
-  where foo (MPair (name',_)) = if name == name'
-                                then True
-                                else False
-        foo _ = False
-extract _ _ = error "invalid"
-
-extractString :: RuleName -> MatchData -> Maybe String
-extractString name m = extract name m >>= return . mToString
-
-
 toPatternPair :: MatchData -> Maybe RulePair
 toPatternPair (MPair ("rule",m)) = do
   rulename <- return $ mToString $ snd $ getMPair $ head $ getMList m
   pattern  <- toPattern $ last $ getMList m
   return (rulename, pattern)
-
--- [rule=>[token=>neg_lookahead/sequence=>[string=>!/[token=>expression]]]]
 toPatternPair _ = Nothing
--- impossible: should be Nothing
+
 
 toPattern :: MatchData -> Maybe Pattern
 toPattern (MPair ("string", str)) = return $ Atom $ mToString str
