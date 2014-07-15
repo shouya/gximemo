@@ -44,7 +44,8 @@ data Pattern = Atom String
              | Sequence [Pattern]
              | NegativeLookahead Pattern
              | PositiveLookahead Pattern
-
+             deriving (Show)
+{-
 instance Show Pattern where
   show (Atom x) = x
   show (Rule x) = '@' : x
@@ -56,7 +57,7 @@ instance Show Pattern where
           mark (RTInt l) (RTInt u) = "{" ++ show l ++ "," ++ show u ++ "}"
           mark _ _ = undefined
   show _ = ""
-
+-}
 
 
 data MatchData = MAtom String
@@ -77,9 +78,25 @@ getMPair :: MatchData -> (RuleName, MatchData)
 getMPair (MPair (r,m)) = (r,m)
 getMPair _ = error "not a MPair"
 
+
+isMList :: MatchData -> Bool
+isMList (MList _) = True
+isMList _ = False
+
 getMList :: MatchData -> [MatchData]
 getMList (MList xs) = xs
-getMList _ = error "not a MList"
+--DEUBG:
+getMList a = error (mInspect a ++ " is not a MList")
+--getMList _ = error "not a MList"
+
+isMAtom :: MatchData -> Bool
+isMAtom (MAtom _) = True
+isMAtom _ = False
+
+getMAtom :: MatchData -> String
+getMAtom (MAtom s) = s
+getMAtom _ = error "not a MAtom"
+
 
 mInspect :: MatchData -> String
 mInspect (MPair (n,md)) = n ++ "=>" ++ mInspect md

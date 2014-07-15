@@ -23,7 +23,10 @@ char = @alpha | @digit | " " | "~" | "`" | "!" | "@" | "#" | "$" | "%" |
 rule = @spaces token @spaces "=" @spaces choice @spaces_nonl
 choice = sequence (@spaces "|" @spaces sequence)*
 sequence = repetition (@spaces_nonl repetition)*
-repetition = expression ("?" | "+" | "*" | "{" @number? "," @number? "}")
+rep_mintime = @number
+rep_maxtime = @number
+rep_mark = ("?" | "+" | "*" | "{" @number? "," @number? "}")
+repetition = expression rep_mark?
 expression = "(" @spaces choice @spaces ")"
 	   | string
 	   | token
