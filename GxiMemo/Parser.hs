@@ -44,20 +44,22 @@ data Pattern = Atom String
              | Sequence [Pattern]
              | NegativeLookahead Pattern
              | PositiveLookahead Pattern
-             deriving (Show,Eq)
-{-
+             deriving (Eq)
+
 instance Show Pattern where
-  show (Atom x) = x
-  show (Rule x) = '@' : x
-  show (RuleX x) = "@@" ++ x
+  show (Atom x) = '"' : x ++ ['"']
+  show (Rule x) = x
+  show (RuleX x) = "@" ++ x
   show (Repetition p a b) = (show p) ++ (mark a b)
     where mark (RTInt 0) (RTInt 1) = "?"
           mark (RTInt 1) RTInf     = "+"
           mark (RTInt 0) RTInf     = "*"
           mark (RTInt l) (RTInt u) = "{" ++ show l ++ "," ++ show u ++ "}"
           mark _ _ = undefined
-  show _ = ""
--}
+  show (Choice xs) = intercalate " | " $ map show xs
+  show (Sequence xs) = intercalate " " $ map show xs
+  show (NegativeLookahead p) = '!' : show p
+  show (PositiveLookahead p) = '=' : show p
 
 
 data MatchData = MAtom String
