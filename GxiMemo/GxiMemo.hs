@@ -6,7 +6,7 @@ import Parser
 import Control.Monad.State
 import Control.Applicative hiding (optional)
 import Data.List
-import Data.Map as M hiding (map, filter)
+import Data.Map as M ((!), fromList)
 
 
 rules :: [RulePair]
@@ -193,7 +193,7 @@ toPatternPair (MPair ("rule",m)) = do
   return (rulename, pattern)
 
 -- [rule=>[token=>neg_lookahead/sequence=>[string=>!/[token=>expression]]]]
-toPatternPair x = toPattern x >>= \_ -> Just $ ("error", Atom $ mInspect x)
+toPatternPair _ = Nothing
 -- impossible: should be Nothing
 
 toPattern :: MatchData -> Maybe Pattern
@@ -235,8 +235,10 @@ toPattern x = Just $ Atom $ mInspect x             -- unrecognized
 parseToRuleList :: String -> Maybe [RulePair]
 parseToRuleList str = do
   rawmain  <- parse str (fromList rules) "main"
---  error (mInspect $ simplifyGM $ simplify $ rawmain)
   rawrules <- (return . expandSequence . simplifyGM . simplify) rawmain
   case rawrules of
-    MList xs -> mapM toPatternPair xs
+    MList xs -> return $ foldl foo [] xs
+      where foo lst a = case toPatternPair a of
+              Nothing -> lst
+              Just x  -> x : lst
     _        -> Nothing

@@ -18,8 +18,6 @@ char = @alpha | @digit | " " | "~" | "`" | "!" | "@" | "#" | "$" | "%" |
        "^" | "&" | "*" | "(" | ")" | "-" | "_" | "=" | "+" | "[" |
        "{" | "]" | "}" | ";" | ":" | "'" | "," | "<" | "." | ">" |
        "/" | "|" | "?" | "\\\\" | "\\" @alpha | "\\\""
-
-(XXX)
 rule = @spaces token @spaces "=" @spaces choice @spaces_nonl
 choice = sequence (@spaces "|" @spaces sequence)*
 sequence = repetition (@spaces_nonl repetition)*
