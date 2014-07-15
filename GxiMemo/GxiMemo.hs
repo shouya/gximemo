@@ -62,7 +62,7 @@ rules =
   ,("token_omitted", Sequence [Atom "@", RuleX "token"])
   ,("string", Sequence [Atom "\"", anyTimes (RuleX "char"), Atom "\""])
   ,("pos_lookahead", Sequence [Atom "=", Rule "expression"])
-  ,("pos_lookahead", Sequence [Atom "!", Rule "expression"])
+  ,("neg_lookahead", Sequence [Atom "!", Rule "expression"])
   ]
 
 
@@ -113,13 +113,8 @@ expandSequence (MList (h:[t])) = MList $
 expandSequence _ = error "not a sequence"
 
 simplifyGM :: MatchData -> MatchData
---simplifyGM (MList (_:(MPair ("rule", x)):xs)) =
---               simplifyGM (MList ((MPair ("rule", x)):xs))
-
 simplifyGM (MList xs) = MList $ map simplifyGM $ filter (not . isMAtom) xs
 
--- simplification for 'token' is only for debugging use,
--- and should be removed in production
 simplifyGM (MPair ("token",xs)) = MPair ("token", MAtom $ mToString xs)
 simplifyGM (MPair ("token_omitted",xs)) =
   MPair ("token_omitted", MAtom $ mToString xs)
@@ -137,14 +132,6 @@ simplifyGM (MPair ("rep_mark",xs)) = penetrateSubstitute "rep_mark" xs
 
 simplifyGM (MPair (n,x)) = MPair (n,simplifyGM x)
 simplifyGM x = x
-
-
-
-debugConvert :: IO ()
-debugConvert = readFile "Parser.memo" >>= \str ->
-  case parseToRuleList str of
-    Just m  -> putStrLn $ intercalate "\n\n" $ map show m
-    Nothing -> putStrLn "Fork! 怎麼又解析出錯了摔!"
 
 
 toPatternPair :: MatchData -> Maybe RulePair
