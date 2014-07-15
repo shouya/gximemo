@@ -96,7 +96,9 @@ penetrateSubstitute name xs = case xs of
 Sequence is defined as below:
   sequence = repetition (@spaces_nonl repetition)*
 So the resulting match data would be in form of:
-  [ele1, [[space?, ele2], [space?, ele3], ...]]
+  [ele1, [[ele2], [ele3], [ele4], ...]]         -- CORRECT
+Or, if simplified with one sole element:
+  [ele1, [ele2]]
 This function transform it into:
   [ele1, ele2, ele3, ...]
 
@@ -104,7 +106,10 @@ This function transform it into:
 -}
 
 expandSequence :: MatchData -> MatchData
-expandSequence (MList xs) = MList ([head xs] ++ map (last . getMList) (tail xs))
+expandSequence (MList (h:[t])) = MList $
+  if (length $ getMList t) == 1
+  then [h] ++ [head $ getMList t]
+  else [h] ++ map (head . getMList) (getMList t)
 expandSequence _ = error "not a sequence"
 
 {-
@@ -120,6 +125,14 @@ Or
 * A repetition without repetition marks will be simplified.
 -}
 
+{-
+Choice:
+  choice = sequence (@spaces "|" @spaces sequence)*
+
+Match Data format:
+   [string=> /[[string=>\t]/[string=>\r\n]/[string=>\r]/[string=>\n]]]
+
+-}
 
 simplifyGM :: MatchData -> MatchData
 --simplifyGM (MList (_:(MPair ("rule", x)):xs)) =
@@ -155,7 +168,7 @@ debugParse start = readFile "Parser.memo" >>= \str ->
         main = rm ! start
 
 debugConvert :: IO ()
-debugConvert = readFile "Parser.memo~" >>= \str ->
+debugConvert = readFile "Parser.memo" >>= \str ->
   case parseToRuleList str of
     Just m  -> putStrLn $ intercalate "\n\n" $ map show m
     Nothing -> putStrLn "Fork! 怎麼又解析出錯了摔!"
@@ -176,21 +189,22 @@ extractString name m = extract name m >>= return . mToString
 toPatternPair :: MatchData -> Maybe RulePair
 toPatternPair (MPair ("rule",m)) = do
   rulename <- return $ mToString $ snd $ getMPair $ head $ getMList m
-  pattern  <- toPattern . last . getMList $ m
+  pattern  <- toPattern $ last $ getMList m
   return (rulename, pattern)
 
-
+-- [rule=>[token=>neg_lookahead/sequence=>[string=>!/[token=>expression]]]]
 toPatternPair x = toPattern x >>= \_ -> Just $ ("error", Atom $ mInspect x)
 -- impossible: should be Nothing
 
 toPattern :: MatchData -> Maybe Pattern
-toPattern (MPair ("string", str)) = return . Atom . tail . init . mToString $ str
+toPattern (MPair ("string", str)) = return $ Atom $ mToString str
 toPattern (MPair ("token", str)) = return . Rule . mToString $ str
 toPattern (MPair ("token_omitted", str)) =
   return . RuleX . tail . mToString $ str                    -- skip the '@'
-toPattern (MPair ("choice", xs)) = error $ mInspect xs
+toPattern (MPair ("choice", xs)) =
+  liftM Choice (mapM toPattern $ getMList $ expandSequence xs)    -- worked
 toPattern (MPair ("sequence", xs)) =
-  liftM Sequence (mapM toPattern $ getMList $ expandSequence xs)           -- worked
+  liftM Sequence (mapM toPattern $ getMList $ expandSequence xs)    -- worked
 toPattern (MPair ("expression", xs)) = toPattern xs
 toPattern (MPair ("repetition", xs)) = do
   pattern <- expr
@@ -211,52 +225,6 @@ toPattern (MList xs) = -- error $ mInspect (MList xs)
     _ -> Sequence <$> (mapM toPattern xs) -- should never be this case
 
 
-{-
-
-[token_omitted=>[@/spaces]/[[ /token=>rule]/[ /repetition=>[expression=>[(/sequence=>[repetition=>[token_omitted=>[@/newline]/rep_manytimes=>+]/[ /token=>rule]]/)]/rep_anytimes=>*]]]]
-
-[token_omitted=>[@/spaces]/[ /repetition=>[expression=>[(/sequence=>[repetition=>[token_omitted=>[@/newline]/rep_manytimes=>+]/[ /token=>rule]]/)]/rep_anytimes=>*]
-
-  [token_omitted=>[@/spaces]
-   /
-   [[ /token=>rule]
-    /
-    [ /repetition=>
-      [expression=>
-       [(/
-        sequence=>[
-          repetition=>[token_omitted=>[@/newline]/rep_manytimes=>+]/[ /token=>rule]]/)]/rep_anytimes=>*]]]
-
--}
-
-{-
-[sequence=>
- [token_omitted=>[@/spaces]
-  /
-  [[ /token=>rule]
-   /
-   [ /repetition=>
-     [expression=>
-      [(/sequence=>
-        [repetition=>
-         [token_omitted=>
-          [@/newline]
-          /
-          rep_manytimes=>+
-         ]
-          /
-          [ /token=>rule]
-         ]/)
-       ]
-       /
-       rep_anytimes=>*
-      ]
-    ]
-  ]
- ]
-  ]
--}
-
 -- toPattern (MList xs) = mapM toPattern xs >>= return . Sequence
 toPattern x = Just $ Atom $ mInspect x             -- unrecognized
 -- toPattern (MPair ("repetition", xs)) =
@@ -267,8 +235,8 @@ toPattern x = Just $ Atom $ mInspect x             -- unrecognized
 parseToRuleList :: String -> Maybe [RulePair]
 parseToRuleList str = do
   rawmain  <- parse str (fromList rules) "main"
+--  error (mInspect $ simplifyGM $ simplify $ rawmain)
   rawrules <- (return . expandSequence . simplifyGM . simplify) rawmain
---  error (mInspect rawrules)
   case rawrules of
     MList xs -> mapM toPatternPair xs
     _        -> Nothing

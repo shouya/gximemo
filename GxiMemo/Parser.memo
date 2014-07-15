@@ -17,9 +17,9 @@ token = @alpha_underscore (@alpha_underscore | @digit)*
 char = @alpha | @digit | " " | "~" | "`" | "!" | "@" | "#" | "$" | "%" |
        "^" | "&" | "*" | "(" | ")" | "-" | "_" | "=" | "+" | "[" |
        "{" | "]" | "}" | ";" | ":" | "'" | "," | "<" | "." | ">" |
-       "/" | "|" | "?" | "\\" "\\" | "\\" @alpha | "\\" "\""
+       "/" | "|" | "?" | "\\\\" | "\\" @alpha | "\\\""
 
-
+(XXX)
 rule = @spaces token @spaces "=" @spaces choice @spaces_nonl
 choice = sequence (@spaces "|" @spaces sequence)*
 sequence = repetition (@spaces_nonl repetition)*

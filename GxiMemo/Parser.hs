@@ -16,7 +16,7 @@ type RuleMap = M.Map RuleName Pattern
 
 data RepTime = RTInt Integer -- n-times
              | RTInf         -- infinity
-             deriving (Show)
+             deriving (Show,Eq)
 
 manyTimes :: Pattern -> Pattern
 manyTimes a = Repetition a (RTInt 1) RTInf     -- +
@@ -44,7 +44,7 @@ data Pattern = Atom String
              | Sequence [Pattern]
              | NegativeLookahead Pattern
              | PositiveLookahead Pattern
-             deriving (Show)
+             deriving (Show,Eq)
 {-
 instance Show Pattern where
   show (Atom x) = x
@@ -63,7 +63,7 @@ instance Show Pattern where
 data MatchData = MAtom String
                | MList [MatchData]
                | MPair (RuleName, MatchData)
---               deriving (Show)
+               deriving (Eq)
 
 instance Show MatchData where
   show (MPair (name,md)) = "{" ++ (show md) ++ "}:" ++ name
