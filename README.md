@@ -33,7 +33,7 @@ GxiMemo mainly separates into three parts, the parser, the
 language, and the specification. The different components are
 related to the other.
 
-![gximemo_components](https://raw.githubusercontent.com/shouya/gximemo/assets/components.svg)
+![gximemo_components](https://shouya.github.io/gximemo/components.svg)
 
 The parser part (`Parser.hs`) provides a complete PEG parser. It can be fed with a
 group of parsing rules and a bunch of input text, then produce a
