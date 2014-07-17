@@ -13,7 +13,7 @@ main = do
   printRulePairs rules
   putStrLn ""
   putStrLn "=============== RULES PARSED & CONVERTED =============="
-  readFile "Parser.memo" >>= \str ->
+  readFile "Gxi.memo" >>= \str ->
     case parseToRuleList str of
       Just m  -> printRulePairs (reverse m)
       Nothing -> putStrLn ("非常抱歉，本串因為如下原因導致無法正常解析: \n\n" ++

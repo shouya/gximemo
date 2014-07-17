@@ -71,9 +71,6 @@ manyTimes :: Pattern -> Pattern
 anyTimes :: Pattern -> Pattern
 optional :: Pattern -> Pattern
 
-rtZerop :: RepTime -> Bool
-rtPred :: RepTime -> RepTime
-
 data Pattern = Atom String
              | Rule String
              | RuleX String  -- rule that only do matching but ignoring the result
@@ -119,7 +116,8 @@ parseToRuleList :: String -> Maybe [RulePair]
 
 Use `parseToRuleList` to convert a specification string into rule
 pairs. And then use `parse`, fed with the text to be parsed, rule map
-build from rule pairs, and the starting rule name, to generate a match result.
+build from rule pairs, and the starting rule name, to generate the
+result of matching.
 
 ### Demonstration
 A demonstration of the GxiMemo language spec conversion has been shown
