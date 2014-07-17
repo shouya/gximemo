@@ -1,0 +1,12 @@
+digraph g {
+  label="GxiMemo components"
+  rankdir=BT;
+  c -> b -> a[weight=1];
+  b -> c[weight=0.1];
+  d -> b[weight=1];
+  a [label="Parser.hs",shape=box];
+  b [label="GxiMemo.hs",shape=box];
+  c [label="Gxi.memo",shape=box];
+  d [label="other_bnf.memo",shape=box,style=dashed];
+  { rank=same; c d };
+}
