@@ -119,7 +119,7 @@ simplifyGM (MPair ("token",xs)) = MPair ("token", MAtom $ mToString xs)
 simplifyGM (MPair ("token_omitted",xs)) =
   MPair ("token_omitted", MAtom $ mToString xs)
 simplifyGM (MPair ("string",xs)) = MPair ("string",
-                                          MAtom $ tail $ init $ mToString xs)
+                                          MAtom $ read $ mToString xs)
 simplifyGM (MPair ("rule", MList xs)) =
   MPair ("rule", MList ([simplifyGM $ head xs] ++ drop 4 xs'))
   where xs' = map simplifyGM xs

@@ -47,7 +47,7 @@ data Pattern = Atom String
              deriving (Eq)
 
 instance Show Pattern where
-  show (Atom x) = '"' : x ++ ['"']
+  show (Atom x) = show x
   show (Rule x) = x
   show (RuleX x) = "@" ++ x
   show (Repetition p a b) = (show p) ++ (mark a b)
@@ -137,7 +137,7 @@ parseI :: Pattern -> ParseResult
 parseI (Atom x) = do
   rest <- getRestString
   len <- return $ length x
-  if (take len rest) == x
+  if len <= (length rest) && (take len rest) == x
   then do putRestString (drop len rest)
           return $ Just $ MAtom x
   else    return Nothing
@@ -179,7 +179,7 @@ parseI (Repetition pat l' u') =
           Just _          -> error "impossible"
 
 
-parseI (Choice []) = return Nothing
+parseI (Choice []) = return Nothing -- impossible case
 parseI (Choice [p]) = do
   m' <- parseI p
   case m' of
