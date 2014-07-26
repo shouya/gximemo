@@ -27,7 +27,7 @@ rules =
                        anyTimes (Choice [RuleX "alpha_underscore",
                                          RuleX "digit"])])
   ,("char", Choice ([RuleX "alpha", RuleX "digit"] ++
-                    (map (Atom . (:[])) " ~`!@#$%^&*()-_=+[]{}:;'<>?,./|") ++
+                    map (Atom . (:[])) " ~`!@#$%^&*()-_=+[]{}:;'<>?,./|" ++
                     [Atom "\\\\", Atom "\\\"",
                      Sequence [Atom "\\", RuleX "alpha"]]))
 
@@ -67,13 +67,13 @@ rules =
 
 
 parse :: String -> RuleMap -> String -> Maybe MatchData
-parse str rm start = evalState (parseI $ main) $ ParsingState str rm
+parse str rm start = evalState (parseI main) $ ParsingState str rm
   where main = rm ! start
 
 
 simplify :: MatchData -> MatchData
 
-simplify (MList (xs)) = xs'''
+simplify (MList xs) = xs'''
   where notnul x = mToString x /= ""
         xs' = map simplify xs
         xs'' = filter notnul xs'
@@ -107,9 +107,9 @@ This function transform it into:
 
 expandSequence :: MatchData -> MatchData
 expandSequence (MList (h:[t])) = MList $
-  if (length $ getMList t) == 1
-  then [h] ++ [head $ getMList t]
-  else [h] ++ map (head . getMList) (getMList t)
+  h : if length (getMList t) == 1
+      then [head $ getMList t]
+      else map (head . getMList) (getMList t)
 expandSequence _ = error "not a sequence"
 
 simplifyGM :: MatchData -> MatchData
@@ -121,7 +121,7 @@ simplifyGM (MPair ("token_omitted",xs)) =
 simplifyGM (MPair ("string",xs)) = MPair ("string",
                                           MAtom $ read $ mToString xs)
 simplifyGM (MPair ("rule", MList xs)) =
-  MPair ("rule", MList ([simplifyGM $ head xs] ++ drop 4 xs'))
+  MPair ("rule", MList (simplifyGM (head xs) : drop 4 xs'))
   where xs' = map simplifyGM xs
 
 simplifyGM (MPair ("choice",xs)) = penetrateSubstitute "choice" xs
@@ -136,7 +136,7 @@ simplifyGM x = x
 
 toPatternPair :: MatchData -> Maybe RulePair
 toPatternPair (MPair ("rule",m)) = do
-  rulename <- return $ mToString $ snd $ getMPair $ head $ getMList m
+  let rulename = mToString $ snd $ getMPair $ head $ getMList m
   pattern  <- toPattern $ last $ getMList m
   return (rulename, pattern)
 toPatternPair _ = Nothing
@@ -168,7 +168,7 @@ toPattern (MPair ("repetition", xs)) = do
 toPattern (MList xs) = -- error $ mInspect (MList xs)
   case length xs of
     1 -> toPattern $ head xs
-    _ -> Sequence <$> (mapM toPattern xs) -- should never be this case
+    _ -> Sequence <$> mapM toPattern xs -- should never be this case
 
 
 -- toPattern (MList xs) = mapM toPattern xs >>= return . Sequence

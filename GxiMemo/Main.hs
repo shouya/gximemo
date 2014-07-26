@@ -5,7 +5,7 @@ import GxiMemo
 
 
 printRulePairs :: [RulePair] -> IO ()
-printRulePairs = mapM_ (\(n,p) -> putStrLn $ (n ++ " = " ++ show p))
+printRulePairs = mapM_ (\(n,p) -> putStrLn (n ++ " = " ++ show p))
 
 main :: IO ()
 main = do

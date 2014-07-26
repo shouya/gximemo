@@ -50,14 +50,14 @@ instance Show Pattern where
   show (Atom x) = show x
   show (Rule x) = x
   show (RuleX x) = "@" ++ x
-  show (Repetition p a b) = (show p) ++ (mark a b)
+  show (Repetition p a b) = show p ++ mark a b
     where mark (RTInt 0) (RTInt 1) = "?"
           mark (RTInt 1) RTInf     = "+"
           mark (RTInt 0) RTInf     = "*"
           mark (RTInt l) (RTInt u) = "{" ++ show l ++ "," ++ show u ++ "}"
           mark _ _ = undefined
   show (Choice xs) = intercalate " | " $ map show xs
-  show (Sequence xs) = intercalate " " $ map show xs
+  show (Sequence xs) = unwords $ map show xs
   show (NegativeLookahead p) = '!' : show p
   show (PositiveLookahead p) = '=' : show p
 
@@ -68,7 +68,7 @@ data MatchData = MAtom String
                deriving (Eq)
 
 instance Show MatchData where
-  show (MPair (name,md)) = "{" ++ (show md) ++ "}:" ++ name
+  show (MPair (name,md)) = "{" ++ show md ++ "}:" ++ name
   show (MList xs) = join $ map show xs
   show (MAtom x)  = x
 
@@ -100,7 +100,7 @@ getMAtom _ = error "not a MAtom"
 
 mInspect :: MatchData -> String
 mInspect (MPair (n,md)) = n ++ "=>" ++ mInspect md
-mInspect (MList xs) = "[" ++ (intercalate "/" $ map mInspect xs) ++ "]"
+mInspect (MList xs) = "[" ++ intercalate "/" (map mInspect xs) ++ "]"
 mInspect (MAtom s) = s
 
 
@@ -120,24 +120,24 @@ type ParseResult = ParseState (Maybe MatchData)
 
 
 getRestString :: ParseState String
-getRestString = get >>= return . view restString
+getRestString = liftM (view restString) get
 putRestString :: String -> ParseState ()
 putRestString st = modify (restString .~ st)
 
 -- read only state
 getRuleMap :: ParseState RuleMap
-getRuleMap = get >>= return . view ruleMap
+getRuleMap = liftM (view ruleMap) get
 
 lookupRule :: RuleName -> ParseState (Maybe Pattern)
-lookupRule name = getRuleMap >>= return . M.lookup name
+lookupRule name = liftM (M.lookup name) getRuleMap
 
 
 parseI :: Pattern -> ParseResult
 
 parseI (Atom x) = do
   rest <- getRestString
-  len <- return $ length x
-  if len <= (length rest) && (take len rest) == x
+  let len = length x
+  if len <= length rest && take len rest == x
   then do putRestString (drop len rest)
           return $ Just $ MAtom x
   else    return Nothing
